@@ -18,7 +18,7 @@ ENV	LDAP_DEBUG_LEVEL	235
 
 RUN	apt update && \
 	apt install -y apache2 libapache2-mod-php php php-mysql php-curl php-xml mysql-server \
-	php-mbstring php7.0-ldap wget unzip dnsutils curl nano \
+	php-mbstring php7.0-ldap wget unzip dnsutils curl nano dialog \
 	bash vim lsof procps net-tools netcat git tcpdump && \
 	rm -rf /var/lib/apt/lists/* && \
     	a2enmod rewrite && \
@@ -33,6 +33,7 @@ RUN	service mysql start && \
     	sleep 5 && \
     	echo "update user set authentication_string=PASSWORD('${MYSQL_DATABASE_PASSWORD}') where user='root';" | mysql -u root -v mysql && \
     	echo "update user set plugin='mysql_native_pass
+
 # ##############################
 # LDAP #########################
 # ##############################word' where user='root';" | mysql -u root -v mysql && \
@@ -47,6 +48,8 @@ RUN	mkdir -p /var/www/html && \
 
 RUN	sed -i 's/^Deny from all/Allow from all/g' /var/www/html/mutillidae/.htaccess
 
+RUN	echo "127.0.0.1	mutillidae.local" >> /etc/hosts
+
 # ##############################
 # LDAP #########################
 # ##############################
@@ -54,12 +57,13 @@ RUN	sed -i 's/^Deny from all/Allow from all/g' /var/www/html/mutillidae/.htacces
 RUN	if [ -z "${LDAP_OPENLDAP_GID}" ]; then groupadd -r openldap; else groupadd -r -g ${LDAP_OPENLDAP_GID} openldap; fi
 RUN	if [ -z "${LDAP_OPENLDAP_UID}" ]; then useradd -r -g openldap openldap; else useradd -r -g openldap -u ${LDAP_OPENLDAP_UID} openldap; fi
 
-RUN	apt-get update && \
+RUN	apt-get -y update && \
 	apt-get install -y --no-install-recommends \
-	ldap-utils \
-	slapd expect
+	ldap-utils expect
 
-RUN	printf "#\n# LDAP Defaults\n#\n\n# See ldap.conf(5) for details\n# This file should be world readable but not world writable.\n\nBASE   dc=mutillidae,dc=local\nURI    ldaps://ldap.mutillidae.local\n\n#SIZELIMIT      12\n#TIMELIMIT      15\n#DEREF          never\n\n# TLS certificates (needed for GnuTLS)\nTLS_CACERT      /etc/ssl/certs/ca-certificates.crt" >  /etc/ldap/ldap.conf
+RUN	printf "#\n# LDAP Defaults\n#\n\n# See ldap.conf(5) for details\n# This file should be world readable but not world writable.\n\nBASE   dc=mutillidae,dc=local\nURI    ldaps://ldap.mutillidae.local\n\n#SIZELIMIT      12\n#TIMELIMIT      15\n#DEREF          never\n\n# TLS certificates (needed for GnuTLS)\nTLS_CACERT      /etc/ssl/certs/ca-certificates.crt" >  /etc/ldap/slapd.conf 
+
+RUN	chown -R openldap:openldap /etc/ldap
 
 # Automatization of dpkg-reconfigure
 RUN	echo '#!/usr/bin/expect' > /dpkg-reconfigure-expect.script && \
@@ -72,6 +76,7 @@ RUN	echo '#!/usr/bin/expect' > /dpkg-reconfigure-expect.script && \
 		printf "\nexpect \"Move old database?\"send \"no\\\r\"" >> /dpkg-reconfigure-expect.script && \
 		printf "\nexpect eof\"" >> /dpkg-reconfigure-expect.script
 
+RUN	apt-get install -y slapd
 RUN service slapd start && \
 		chmod +x /dpkg-reconfigure-expect.script && \
 		/dpkg-reconfigure-expect.script
