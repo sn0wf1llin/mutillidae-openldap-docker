@@ -22,7 +22,9 @@ ENV		LDAP_DEBUG_LEVEL 235
 RUN		apt update && \
 			apt install -y apache2 libapache2-mod-php php php-mysql php-curl php-xml mysql-server \
 			php-mbstring php7.0-ldap wget unzip dnsutils curl nano dialog \
-			bash vim lsof procps net-tools netcat git tcpdump apt-utils
+			bash vim lsof procps net-tools netcat git tcpdump apt-utils php7.0-mcrypt phpmyadmin && \
+		dpkg-reconfigure phpmyadmin && \
+		phpenmod mcrypt
 
 RUN		rm -rf /var/lib/apt/lists/* && \
     	a2enmod rewrite && \
@@ -38,6 +40,7 @@ RUN		service mysql start && \
 			service mysql status ; \
 			echo "use mysql; UPDATE user SET authentication_string=PASSWORD('${MYSQL_DATABASE_PASSWORD}') \
 			WHERE user='root';UPDATE user SET plugin='mysql_native_password' WHERE user='root';FLUSH PRIVILEGES;" | mysql -u root && \
+	cat /var/www/html/mutillidae/phpmyadmin/examples/create_tables.sql | mysql -u root && \
     	sed -i 's/^error_reporting.*/error_reporting = E_ALL/g' /etc/php/7.0/apache2/php.ini && \
     	sed -i 's/^display_errors.*/display_errors = On/g' /etc/php/7.0/apache2/php.ini
 
@@ -123,6 +126,22 @@ RUN		TEST_LDAP=`ldapsearch -x -b 'dc=mutillidae,dc=local' "objectClass=rooms"`; 
 
 # ##############################
 
+# ##############################
+# vim & .bashrc settings #######
+# ##############################
+echo "alias ll='ls -latr'" >> ~/.bashrc
+echo "syntax on" > ~/.vimrc
+echo "set number" >> ~/.vimrc
+# ##############################
+
+# ##############################
+# start services 'by hands' ####
+# ##############################
+echo "You need to start services by yourself ;)"
+echo "( service slapd start AND service mysql start AND service apache2 start )"
+
+
+# ##############################
 EXPOSE	80 3306 389 636 22
 
-CMD		["bash", "-c", "service slapd start && service mysql start && service apache2 start && sleep infinity & wait"]
+CMD		["bash", "-c", "sleep infinity & wait"]
